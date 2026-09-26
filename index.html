@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Billard farceur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#0A0D0C;
+    --panel:#111716;
+    --line:#1E2926;
+    --ink:#E8EFEA;
+    --ink-dim:#89A398;
+    --accent:#7FD4A8;
+    --hot:#E2A03F;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:13px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .bar{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px 20px;
+    flex-wrap:wrap;
+    padding-block:9px;
+    padding-inline:16px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  .bar--bottom{
+    border-bottom:0;
+    border-top:1px solid var(--line);
+    flex-direction:column;
+    align-items:stretch;
+    gap:9px;
+  }
+  h1{
+    font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+    font-weight:700;
+    font-size:clamp(15px,2.4vw,20px);
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    margin:0;
+  }
+  h1 span{color:var(--accent)}
+  .stats{display:flex;gap:18px;margin:0}
+  .stats > div{display:flex;align-items:baseline;gap:7px}
+  dt{margin:0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  dd{margin:0;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
+  .stage{flex:1 1 auto;min-height:0;position:relative;padding-inline:8px}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+
+  .mutations{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .mutations .label{
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-dim);margin-right:3px;
+  }
+  .chip{
+    font-family:inherit;font-size:11.5px;
+    color:var(--ink-dim);
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--ink-dim)}
+  .chip[aria-pressed="true"]{
+    color:#07120D;background:var(--hot);border-color:var(--hot);
+  }
+  .chip:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .hint{margin:0;color:var(--ink-dim);font-size:11.5px;line-height:1.5;max-width:56ch}
+  .actions{display:flex;gap:9px;flex-wrap:wrap}
+  button{
+    font-family:inherit;font-size:11.5px;letter-spacing:.04em;
+    color:#07120D;background:var(--accent);
+    border:1px solid var(--accent);border-radius:3px;
+    padding:9px 14px;cursor:pointer;text-align:left;
+  }
+  button:hover{filter:brightness(1.08)}
+  button.ghost{background:transparent;color:var(--ink-dim);border-color:var(--line)}
+  button.ghost:hover{color:var(--ink);border-color:var(--ink-dim);filter:none}
+  button.ghost[aria-pressed="true"]{
+    color:#07120D;background:var(--hot);border-color:var(--hot);
+  }
+  @media (max-width:620px){
+    .stats{gap:12px}
+    dd{font-size:14px}
+    .hint{display:none}
+    .actions{width:100%}
+    .actions button{flex:1 1 auto;text-align:center}
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Billard <span>farceur</span></h1>
+  <dl class="stats">
+    <div><dt>Coups</dt><dd id="shots">0</dd></div>
+    <div><dt>Empochées</dt><dd id="potted">0</dd></div>
+    <div><dt>Fautes</dt><dd id="fouls">0</dd></div>
+  </dl>
+</header>
+
+<main class="stage"><canvas id="table"></canvas></main>
+
+<footer class="bar bar--bottom">
+  <div class="mutations" id="mutations"><span class="label">Mutations</span></div>
+  <div class="row">
+    <p class="hint">Clique près de la blanche puis éloigne la souris&nbsp;: la queue recule, l'anneau vert donne la force. Le bouton Triche montre la vraie trajectoire, y compris quand une mutation ment ou dévie.</p>
+    <div class="actions">
+      <button id="triche" type="button" class="ghost" aria-pressed="false" title="Affiche la trajectoire réelle jusqu'à une bande, une bille ou un trou">Triche&nbsp;: voir la trajectoire</button>
+      <button id="assist" type="button">Bon alors, ça va dans le trou quand&nbsp;?</button>
+      <button id="sound" type="button" class="ghost">Son&nbsp;: activé</button>
+      <button id="reset" type="button" class="ghost">Nouvelle partie</button>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var cv  = document.getElementById('table');
+  var ctx = cv.getContext('2d');
+  var elShots  = document.getElementById('shots');
+  var elPotted = document.getElementById('potted');
+  var elFouls  = document.getElementById('fouls');
+
+  /* ================= Réglages ================= */
+  var R            = 16;
+  var R_MAX        = 58;
+  var POCKET_CAP   = 26;
+  var POCKET_DRAW  = 28;
+  var CUSHION      = 30;     // bande sombre (feutre)
+  var WOOD         = 20;     // cadre bois extérieur
+  var REST_CUSHION = 0.90;
+  var TANG_CUSHION = 0.985;
+  var REST_BALL    = 0.96;
+  var FRICTION     = 0.988;
+  var FRICTION_LOW = 0.9965; // quand une mutation veut du mouvement long
+  var FRICTION_ICE = 0.9994; // patinoire : presque plus de frottement
+  var STOP_EPS     = 9;
+  var MAX_SPEED    = 2300;
+  var MAX_PULL     = 270;
+  var SUBSTEPS     = 6;
+  var SHOT_TIMEOUT = 15;
+  var ASSIST_TIME  = 3.2;
+  var HURRY_SPEED  = 320;    // en dessous, un clic écourte le coup
+
+  var SUN_G          = 70000; // force du système solaire (réduite pour éviter l'emballement au contact)
+  var SUN_DMIN       = 200;   // distance plancher pour le calcul de l'attraction : évite le "clic continu" au ras du soleil
+  var SUN_BOUNCE     = 0.55;  // restitution adoucie contre le soleil, pour que l'orbite se stabilise au lieu de rebondir en boucle
+  var MITOSE_CAP     = 16;
+  var MITOSE_CHANCE  = 0.30;
+  var CLICK_COOLDOWN = 0.05;  // secondes minimum entre deux sons de choc pour la même paire de billes
+  var TRICHE_MAX_BOUNCES = 10;
+  var TRICHE_MAX_TIME    = 6; // secondes simulées par le bouton Triche
+
+  var COLOR_CUE = '#F2EFE6';
+  var COLORS = ['#FFC93C','#E2503F','#3D7BD9','#F08A3C','#A66BD4','#46C4C9'];
+
+  /* ================= Mutations ================= */
+  var MUTATIONS = [
+    { id:'yoyo',       name:'Yoyo',            tip:"Toutes les 0,85 s la bille repart en arrière." },
+    { id:'tetue',      name:'Bille têtue',     tip:"Une bille refuse catégoriquement de bouger." },
+    { id:'gonfle',     name:'Gonflette',       tip:"À chaque choc les billes grossissent — jusqu'à ne plus entrer dans les poches." },
+    { id:'portail',    name:'Portail',         tip:"Plus de rebond : la bille traverse la bande et ressort en face." },
+    { id:'soleil',     name:'Système solaire', tip:"Une bille devient un astre et attire toutes les autres." },
+    { id:'zigzag',     name:'Zigzag',          tip:"La bille dévie en cadence, à droite puis à gauche." },
+    { id:'fauxrebond', name:'Faux rebond',     tip:"Chaque rebond sur une bande dévie l'angle de quelques degrés." },
+    { id:'mitose',     name:'Mitose',          tip:"Chaque choc peut dédoubler une bille, jusqu'à 16 sur la table." },
+    { id:'glace',      name:'Patinoire',       tip:"Le tapis ne freine quasiment plus les billes." },
+    { id:'mensonge',   name:'Ligne menteuse',  tip:"La ligne de visée annonce une trajectoire... que la bille ne suit pas." }
+  ];
+  var on = {
+    yoyo:false, tetue:false, gonfle:false, portail:false, soleil:false,
+    zigzag:false, fauxrebond:false, mitose:false, glace:false, mensonge:false
+  };
+
+  /* ================= Géométrie ================= */
+  var orient = null, L = null, PLAY = null, POCKETS = [];
+  var view = { s:1, ox:0, oy:0, dpr:1 };
+
+  function geom(o){
+    orient = o;
+    if (o === 'landscape'){ L = {w:1600,h:900};  PLAY = {x:130,y:120,w:1340,h:670}; }
+    else                  { L = {w:900,h:1600};  PLAY = {x:120,y:130,w:660,h:1340}; }
+    var x = PLAY.x, y = PLAY.y, w = PLAY.w, h = PLAY.h;
+    POCKETS = (o === 'landscape')
+      ? [{x:x,y:y},{x:x+w/2,y:y},{x:x+w,y:y},{x:x,y:y+h},{x:x+w/2,y:y+h},{x:x+w,y:y+h}]
+      : [{x:x,y:y},{x:x,y:y+h/2},{x:x,y:y+h},{x:x+w,y:y},{x:x+w,y:y+h/2},{x:x+w,y:y+h}];
+  }
+  function pt(u,v){
+    return (orient === 'landscape')
+      ? { x: PLAY.x + u*PLAY.w, y: PLAY.y + v*PLAY.h }
+      : { x: PLAY.x + v*PLAY.w, y: PLAY.y + (1-u)*PLAY.h };
+  }
+  function uv(p){
+    return (orient === 'landscape')
+      ? { u:(p.x-PLAY.x)/PLAY.w, v:(p.y-PLAY.y)/PLAY.h }
+      : { u:1-(p.y-PLAY.y)/PLAY.h, v:(p.x-PLAY.x)/PLAY.w };
+  }
+
+  /* ================= Utilitaires ================= */
+  function detRand(seed){
+    var x = Math.sin(seed*12.9898)*43758.5453123;
+    return x - Math.floor(x);
+  }
+  function bendVec(vx, vy, deg){
+    var a = deg*Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+    return { x: vx*c - vy*s, y: vx*s + vy*c };
+  }
+  function applyFauxRebond(b, seedBase){
+    if (!on.fauxrebond) return;
+    var dev = (Math.random()*5+3) * (Math.random()<0.5?-1:1);
+    var bv = bendVec(b.vx, b.vy, dev);
+    b.vx = bv.x; b.vy = bv.y;
+  }
+
+  /* ================= État ================= */
+  var balls = [], shots = 0, potted = 0, fouls = 0;
+  var aim = null, shotT = 0, assistT = 0, cueOut = false, rerackT = 0, last = 0, clockNow = 0;
+  var hurry = false, clicksThisFrame = 0;
+  var pendingMitose = [];
+
+  function mk(p,color,isCue){
+    return { x:p.x, y:p.y, vx:0, vy:0, r:R, color:color, cue:!!isCue,
+             alive:true, yoyoT:0, portalT:0, fixed:false, sun:false,
+             zigT:0, zigSign:1, clkT:-1 };
+  }
+
+  function rack(keepCue){
+    var lng = (orient === 'landscape') ? PLAY.w : PLAY.h;
+    var crs = (orient === 'landscape') ? PLAY.h : PLAY.w;
+    var dU = (2*R*0.90)/lng, dV = (2*R*1.02)/crs;
+    var cue = (keepCue && balls[0]) ? balls[0] : mk(pt(0.22,0.5), COLOR_CUE, true);
+    var row, i, n = 0;
+    cue.alive = true; cue.r = R; cue.fixed = false; cue.sun = false; cue.vx = 0; cue.vy = 0;
+    balls = [cue];
+    for (row = 0; row < 3; row++){
+      for (i = 0; i <= row; i++){
+        balls.push(mk(pt(0.66 + row*dU, 0.5 + (i - row/2)*dV), COLORS[n % COLORS.length]));
+        n++;
+      }
+    }
+    pendingMitose.length = 0;
+    assignRoles();
+  }
+
+  function assignRoles(){
+    var col = [], i, k;
+    for (i = 1; i < balls.length; i++){ balls[i].fixed = false; balls[i].sun = false; if (balls[i].alive) col.push(balls[i]); }
+    if (!col.length) return;
+    if (on.tetue){ col[Math.floor(Math.random()*col.length)].fixed = true; }
+    if (on.soleil){
+      for (k = 0; k < col.length; k++){ if (!col[k].fixed){ col[k].sun = true; break; } }
+      if (!col.some(function(b){ return b.sun; })) col[0].sun = true;
+    }
+  }
+
+  function placeCue(){
+    var c = balls[0], k, i, clash, q, p = pt(0.22,0.5);
+    c.x = p.x; c.y = p.y; c.vx = 0; c.vy = 0; c.alive = true; c.portalT = 0;
+    for (k = 0; k < 30; k++){
+      clash = false;
+      for (i = 1; i < balls.length; i++){
+        if (!balls[i].alive) continue;
+        if (Math.hypot(balls[i].x - c.x, balls[i].y - c.y) < c.r + balls[i].r + 3){ clash = true; break; }
+      }
+      if (!clash) return;
+      q = pt(Math.max(0.05, 0.22 - 0.025*(k+1)), 0.5);
+      c.x = q.x; c.y = q.y;
+    }
+  }
+
+  function hud(){
+    elShots.textContent = shots; elPotted.textContent = potted; elFouls.textContent = fouls;
+  }
+
+  /* ================= Son ================= */
+  var ac = null, soundOn = true, noiseBuf = null;
+
+  function audio(){
+    if (!soundOn) return null;
+    if (!ac){
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ return null; }
+    }
+    if (ac.state === 'suspended'){ try { ac.resume(); } catch(e){} }
+    if (!noiseBuf && ac){
+      var n = Math.floor(ac.sampleRate * 0.25), d, j;
+      noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+      d = noiseBuf.getChannelData(0);
+      for (j = 0; j < n; j++) d[j] = Math.random()*2 - 1;
+    }
+    return ac;
+  }
+
+  function blip(c, t, type, f0, f1, dur, vol){
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(30,f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  function hiss(c, t, dur, vol, cutoff){
+    if (!noiseBuf) return;
+    var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = noiseBuf;
+    f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(c.destination);
+    s.start(t); s.stop(t + dur + 0.02);
+  }
+
+  // clic sec : choc bille contre bille
+  function sndClick(v){
+    var c = audio(); if (!c || clicksThisFrame > 4) return;
+    clicksThisFrame++;
+    var t = c.currentTime;
+    blip(c, t, 'triangle', 1600 + 900*v, 620, 0.045, 0.12*v + 0.015);
+    hiss(c, t, 0.025, 0.07*v, 4200);
+  }
+  // poc feutré : bille contre bande
+  function sndCushion(v){
+    var c = audio(); if (!c) return;
+    var t = c.currentTime;
+    blip(c, t, 'sine', 230 + 90*v, 120, 0.11, 0.10*v + 0.01);
+    hiss(c, t, 0.05, 0.035*v, 900);
+  }
+  // trililouc : la bille tombe dans la poche
+  function sndPocket(){
+    var c = audio(); if (!c) return;
+    var t = c.currentTime;
+    blip(c, t,        'sine', 980, 900, 0.055, 0.09);
+    blip(c, t + 0.06, 'sine', 760, 700, 0.055, 0.085);
+    blip(c, t + 0.12, 'sine', 560, 500, 0.06,  0.08);
+    blip(c, t + 0.20, 'sine', 150,  70, 0.24,  0.13);
+    hiss(c, t + 0.20, 0.18, 0.05, 500);
+  }
+
+  /* ================= Mise à l'échelle ================= */
+  function resize(){
+    var r = cv.parentElement.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var want, saved, s;
+    view.dpr = dpr;
+    cv.width  = Math.max(1, Math.round(r.width  * dpr));
+    cv.height = Math.max(1, Math.round(r.height * dpr));
+    cv.style.width  = r.width  + 'px';
+    cv.style.height = r.height + 'px';
+
+    want = (r.width >= r.height) ? 'landscape' : 'portrait';
+    if (want !== orient){
+      saved = balls.map(function(b){
+        var c = uv(b);
+        return { u:c.u, v:c.v, r:b.r, color:b.color, cue:b.cue, alive:b.alive, fixed:b.fixed, sun:b.sun };
+      });
+      geom(want);
+      if (saved.length){
+        balls = saved.map(function(b){
+          var p = pt(b.u, b.v);
+          return { x:p.x, y:p.y, vx:0, vy:0, r:b.r, color:b.color, cue:b.cue,
+                   alive:b.alive, yoyoT:0, portalT:0, fixed:b.fixed, sun:b.sun,
+                   zigT:0, zigSign:1, clkT:-1 };
+        });
+      } else { rack(); }
+      aim = null;
+    }
+    s = Math.min(r.width / L.w, r.height / L.h);
+    view.s = s;
+    view.ox = (r.width  - L.w * s) / 2;
+    view.oy = (r.height - L.h * s) / 2;
+  }
+
+  /* ================= Physique ================= */
+  function nearestPocket(b){
+    var best = POCKETS[0], bd = Infinity, i, d;
+    for (i = 0; i < POCKETS.length; i++){
+      d = (POCKETS[i].x-b.x)*(POCKETS[i].x-b.x) + (POCKETS[i].y-b.y)*(POCKETS[i].y-b.y);
+      if (d < bd){ bd = d; best = POCKETS[i]; }
+    }
+    return best;
+  }
+
+  function doPockets(){
+    var i, j, b;
+    for (i = 0; i < balls.length; i++){
+      b = balls[i];
+      if (!b.alive || b.portalT > 0) continue;
+      if (b.r > POCKET_CAP - 2) continue;         // trop grosse pour entrer
+      for (j = 0; j < POCKETS.length; j++){
+        if (Math.hypot(POCKETS[j].x-b.x, POCKETS[j].y-b.y) < POCKET_CAP){
+          b.alive = false; b.vx = 0; b.vy = 0;
+          if (b.cue){ cueOut = true; fouls++; } else { potted++; }
+          sndPocket(); hud();
+          break;
+        }
+      }
+    }
+  }
+
+  function doCushions(){
+    var i, b, v;
+    for (i = 0; i < balls.length; i++){
+      b = balls[i];
+      if (!b.alive) continue;
+
+      if (on.portail){                              // la bande devient un passage
+        if (b.x < PLAY.x - b.r)            { b.x = PLAY.x + PLAY.w + b.r; b.portalT = 0.30; }
+        else if (b.x > PLAY.x + PLAY.w + b.r){ b.x = PLAY.x - b.r;        b.portalT = 0.30; }
+        if (b.y < PLAY.y - b.r)            { b.y = PLAY.y + PLAY.h + b.r; b.portalT = 0.30; }
+        else if (b.y > PLAY.y + PLAY.h + b.r){ b.y = PLAY.y - b.r;        b.portalT = 0.30; }
+        continue;
+      }
+
+      var x0 = PLAY.x + b.r, x1 = PLAY.x + PLAY.w - b.r;
+      var y0 = PLAY.y + b.r, y1 = PLAY.y + PLAY.h - b.r;
+      if (b.x < x0){ b.x = x0; if (b.vx < 0){ v = -b.vx; b.vx = v*REST_CUSHION; b.vy *= TANG_CUSHION; sndCushion(Math.min(1, v/1100)); applyFauxRebond(b); } }
+      else if (b.x > x1){ b.x = x1; if (b.vx > 0){ v = b.vx; b.vx = -v*REST_CUSHION; b.vy *= TANG_CUSHION; sndCushion(Math.min(1, v/1100)); applyFauxRebond(b); } }
+      if (b.y < y0){ b.y = y0; if (b.vy < 0){ v = -b.vy; b.vy = v*REST_CUSHION; b.vx *= TANG_CUSHION; sndCushion(Math.min(1, v/1100)); applyFauxRebond(b); } }
+      else if (b.y > y1){ b.y = y1; if (b.vy > 0){ v = b.vy; b.vy = -v*REST_CUSHION; b.vx *= TANG_CUSHION; sndCushion(Math.min(1, v/1100)); applyFauxRebond(b); } }
+    }
+  }
+
+  function isFixed(b){ return on.tetue && b.fixed && assistT <= 0; }
+
+  function doBalls(){
+    var i, j, a, b, dx, dy, d, sum, nx, ny, ov, vn, imp, af, bf, rest, canClick;
+    for (i = 0; i < balls.length; i++){
+      a = balls[i]; if (!a.alive) continue;
+      for (j = i+1; j < balls.length; j++){
+        b = balls[j]; if (!b.alive) continue;
+        dx = b.x - a.x; dy = b.y - a.y; d = Math.hypot(dx, dy);
+        if (d === 0){ dx = 0.01; dy = 0; d = 0.01; }
+        sum = a.r + b.r;
+        if (d >= sum) continue;
+        nx = dx/d; ny = dy/d; ov = sum - d;
+        af = isFixed(a); bf = isFixed(b);
+
+        if (af && !bf){ b.x += nx*ov; b.y += ny*ov; }
+        else if (bf && !af){ a.x -= nx*ov; a.y -= ny*ov; }
+        else { a.x -= nx*ov/2; a.y -= ny*ov/2; b.x += nx*ov/2; b.y += ny*ov/2; }
+
+        vn = (b.vx - a.vx)*nx + (b.vy - a.vy)*ny;
+        if (vn >= 0) continue;
+
+        // contre le soleil, une restitution adoucie évite le rebond continu au contact
+        rest = (on.soleil && (a.sun || b.sun)) ? SUN_BOUNCE : REST_BALL;
+
+        if (af && bf){ a.vx = a.vy = b.vx = b.vy = 0; }
+        else if (af){ imp = -(1+rest)*vn; b.vx += imp*nx; b.vy += imp*ny; a.vx = 0; a.vy = 0; }
+        else if (bf){ imp = -(1+rest)*vn; a.vx -= imp*nx; a.vy -= imp*ny; b.vx = 0; b.vy = 0; }
+        else {
+          imp = -(1+rest)*vn/2;
+          a.vx -= imp*nx; a.vy -= imp*ny;
+          b.vx += imp*nx; b.vy += imp*ny;
+        }
+
+        // anti-mitraillage : un même duo de billes ne rejoue pas le son plus vite que CLICK_COOLDOWN
+        canClick = (clockNow - (a.clkT||-1) > CLICK_COOLDOWN) || (clockNow - (b.clkT||-1) > CLICK_COOLDOWN);
+        if (canClick){
+          sndClick(Math.min(1, Math.abs(vn)/1200));
+          a.clkT = clockNow; b.clkT = clockNow;
+        }
+
+        if (on.gonfle){
+          a.r = Math.min(R_MAX, a.r*1.13);
+          b.r = Math.min(R_MAX, b.r*1.13);
+        }
+
+        if (on.mitose && Math.random() < MITOSE_CHANCE && (balls.length + pendingMitose.length) < MITOSE_CAP){
+          var src = !a.cue ? a : (!b.cue ? b : null);
+          if (src){
+            var ang = Math.random()*Math.PI*2, off = src.r*2.1;
+            var clone = mk({ x: src.x + Math.cos(ang)*off, y: src.y + Math.sin(ang)*off }, src.color, false);
+            clone.r = src.r;
+            var sp2 = Math.hypot(src.vx, src.vy) || 200;
+            var a2 = Math.random()*Math.PI*2;
+            clone.vx = Math.cos(a2)*sp2*0.6; clone.vy = Math.sin(a2)*sp2*0.6;
+            pendingMitose.push(clone);
+          }
+        }
+      }
+    }
+  }
+
+  function findSun(){
+    var i;
+    for (i = 1; i < balls.length; i++){ if (balls[i].alive && balls[i].sun) return balls[i]; }
+    return null;
+  }
+
+  function step(dt){
+    var h = dt/SUBSTEPS, s, i, b, p, dx, dy, d, sp, f, sun, acc, spd, px, py;
+    for (s = 0; s < SUBSTEPS; s++){
+      sun = on.soleil ? findSun() : null;
+      for (i = 0; i < balls.length; i++){
+        b = balls[i];
+        if (!b.alive) continue;
+        if (b.portalT > 0) b.portalT = Math.max(0, b.portalT - h);
+
+        if (assistT > 0 && !b.cue){
+          p = nearestPocket(b);
+          dx = p.x-b.x; dy = p.y-b.y; d = Math.hypot(dx,dy) || 1;
+          b.vx += (dx/d)*2800*h; b.vy += (dy/d)*2800*h;
+          sp = Math.hypot(b.vx,b.vy);
+          if (sp > 1400){ b.vx *= 1400/sp; b.vy *= 1400/sp; }
+        } else {
+          if (sun && b !== sun){
+            // distance plancher relevée (SUN_DMIN) : l'attraction reste forte mais ne s'emballe plus au ras du contact
+            dx = sun.x-b.x; dy = sun.y-b.y; d = Math.max(SUN_DMIN, Math.hypot(dx,dy));
+            acc = SUN_G/d;
+            b.vx += (dx/d)*acc*h; b.vy += (dy/d)*acc*h;
+          }
+          if (on.yoyo && !b.fixed){
+            b.yoyoT += h;
+            if (b.yoyoT > 0.85){
+              b.yoyoT = 0;
+              if (Math.hypot(b.vx,b.vy) > 40){ b.vx = -b.vx; b.vy = -b.vy; }
+            }
+          }
+          if (on.zigzag && !b.fixed){
+            b.zigT = (b.zigT||0) + h;
+            if (b.zigT > 0.42){ b.zigT -= 0.42; b.zigSign = -(b.zigSign||1); }
+            spd = Math.hypot(b.vx,b.vy);
+            if (spd > 30){
+              px = -b.vy/spd; py = b.vx/spd;
+              b.vx += px*1000*b.zigSign*h; b.vy += py*1000*b.zigSign*h;
+            }
+          }
+        }
+        if (isFixed(b)){ b.vx = 0; b.vy = 0; }
+        if (sun && b === sun && assistT <= 0){ b.vx = 0; b.vy = 0; }
+
+        b.x += b.vx*h; b.y += b.vy*h;
+      }
+      doPockets();
+      doCushions();
+      doBalls();
+      if (on.mitose && pendingMitose.length){
+        for (var pm = 0; pm < pendingMitose.length; pm++) balls.push(pendingMitose[pm]);
+        pendingMitose.length = 0;
+      }
+    }
+
+    var base = on.glace ? FRICTION_ICE
+      : ((assistT > 0 || on.soleil || on.yoyo || on.zigzag) ? FRICTION_LOW : FRICTION);
+    f = Math.pow(base, dt*60);
+    if (hurry) f = Math.pow(0.86, dt*60);
+    for (i = 0; i < balls.length; i++){
+      b = balls[i];
+      if (!b.alive) continue;
+      b.vx *= f; b.vy *= f;
+      if (Math.hypot(b.vx,b.vy) < STOP_EPS){ b.vx = 0; b.vy = 0; }
+    }
+  }
+
+  function maxSpeed(){
+    var i, m = 0, s;
+    for (i = 0; i < balls.length; i++){
+      if (!balls[i].alive) continue;
+      s = Math.hypot(balls[i].vx, balls[i].vy);
+      if (s > m) m = s;
+    }
+    return m;
+  }
+  function resting(){ return maxSpeed() === 0; }
+
+  /* ================= Visée ================= */
+  function rayLen(o, dx, dy){
+    var t = Infinity, i, b, ex, ey, proj, perp2, rr, tt;
+    if (!on.portail){
+      var x0 = PLAY.x+o.r, x1 = PLAY.x+PLAY.w-o.r, y0 = PLAY.y+o.r, y1 = PLAY.y+PLAY.h-o.r;
+      if (dx >  1e-6) t = Math.min(t, (x1-o.x)/dx);
+      if (dx < -1e-6) t = Math.min(t, (x0-o.x)/dx);
+      if (dy >  1e-6) t = Math.min(t, (y1-o.y)/dy);
+      if (dy < -1e-6) t = Math.min(t, (y0-o.y)/dy);
+    } else { t = 900; }
+    for (i = 1; i < balls.length; i++){
+      b = balls[i]; if (!b.alive) continue;
+      ex = b.x-o.x; ey = b.y-o.y;
+      proj = ex*dx + ey*dy;
+      if (proj <= 0) continue;
+      rr = (o.r+b.r)*(o.r+b.r);
+      perp2 = (ex*ex + ey*ey) - proj*proj;
+      if (perp2 > rr) continue;
+      tt = proj - Math.sqrt(rr-perp2);
+      if (tt > 0 && tt < t) t = tt;
+    }
+    return Math.max(0, Math.min(t, 4000));
+  }
+
+  // Bouton Triche : simule le coup à l'avance (bandes, mutations en cours) jusqu'à
+  // une bille, un trou, ou une limite de temps/rebonds, et renvoie le chemin réel.
+  function simulateCuePath(c, dx, dy, sp){
+    var pts = [{ x:c.x, y:c.y }];
+    var gx = c.x, gy = c.y, gvx = dx*sp, gvy = dy*sp, gr = c.r;
+    var t = 0, dt2 = 1/60, bounces = 0, hitType = 'cap';
+    var sun = on.soleil ? findSun() : null;
+    var zigT2 = 0, zigSign2 = 1;
+    var base = on.glace ? FRICTION_ICE : ((on.soleil||on.yoyo||on.zigzag) ? FRICTION_LOW : FRICTION);
+
+    while (t < TRICHE_MAX_TIME && bounces < TRICHE_MAX_BOUNCES){
+      t += dt2;
+
+      if (sun && sun !== c){
+        var sdx = sun.x-gx, sdy = sun.y-gy, sd = Math.max(SUN_DMIN, Math.hypot(sdx,sdy));
+        var acc2 = SUN_G/sd;
+        gvx += (sdx/sd)*acc2*dt2; gvy += (sdy/sd)*acc2*dt2;
+      }
+      if (on.zigzag){
+        zigT2 += dt2;
+        if (zigT2 > 0.42){ zigT2 -= 0.42; zigSign2 = -zigSign2; }
+        var spd2 = Math.hypot(gvx,gvy);
+        if (spd2 > 30){
+          var px2 = -gvy/spd2, py2 = gvx/spd2;
+          gvx += px2*1000*zigSign2*dt2; gvy += py2*1000*zigSign2*dt2;
+        }
+      }
+      gx += gvx*dt2; gy += gvy*dt2;
+
+      // trou ?
+      var pocketed = false, pp;
+      for (var pI = 0; pI < POCKETS.length; pI++){
+        if (Math.hypot(POCKETS[pI].x-gx, POCKETS[pI].y-gy) < POCKET_CAP){ pocketed = true; pp = POCKETS[pI]; break; }
+      }
+      if (pocketed){ hitType = 'pocket'; pts.push({ x:pp.x, y:pp.y }); break; }
+
+      // bille ?
+      var hitBall = false;
+      for (var bI = 1; bI < balls.length; bI++){
+        var ob = balls[bI];
+        if (!ob.alive) continue;
+        if (Math.hypot(ob.x-gx, ob.y-gy) < gr+ob.r){ hitBall = true; break; }
+      }
+      if (hitBall){ hitType = 'ball'; pts.push({ x:gx, y:gy }); break; }
+
+      // bandes
+      if (on.portail){
+        if (gx < PLAY.x-gr){ gx = PLAY.x+PLAY.w+gr; bounces++; }
+        else if (gx > PLAY.x+PLAY.w+gr){ gx = PLAY.x-gr; bounces++; }
+        if (gy < PLAY.y-gr){ gy = PLAY.y+PLAY.h+gr; bounces++; }
+        else if (gy > PLAY.y+PLAY.h+gr){ gy = PLAY.y-gr; bounces++; }
+      } else {
+        var x0 = PLAY.x+gr, x1 = PLAY.x+PLAY.w-gr, y0 = PLAY.y+gr, y1 = PLAY.y+PLAY.h-gr;
+        var bounced = false;
+        if (gx < x0){ gx=x0; if (gvx<0){ gvx=-gvx*REST_CUSHION; gvy*=TANG_CUSHION; bounced=true; } }
+        else if (gx > x1){ gx=x1; if (gvx>0){ gvx=-gvx*REST_CUSHION; gvy*=TANG_CUSHION; bounced=true; } }
+        if (gy < y0){ gy=y0; if (gvy<0){ gvy=-gvy*REST_CUSHION; gvx*=TANG_CUSHION; bounced=true; } }
+        else if (gy > y1){ gy=y1; if (gvy>0){ gvy=-gvy*REST_CUSHION; gvx*=TANG_CUSHION; bounced=true; } }
+        if (bounced){
+          bounces++;
+          if (on.fauxrebond){
+            var dev = (detRand(bounces*7.13 + gx*0.001)*5 + 3) * (detRand(bounces*3.7 + gy*0.001) < 0.5 ? -1 : 1);
+            var bv = bendVec(gvx, gvy, dev);
+            gvx = bv.x; gvy = bv.y;
+          }
+        }
+      }
+
+      pts.push({ x:gx, y:gy });
+
+      var ff = Math.pow(base, dt2*60);
+      gvx *= ff; gvy *= ff;
+      if (Math.hypot(gvx,gvy) < STOP_EPS){ hitType = 'stop'; break; }
+    }
+    return { pts:pts, hitType:hitType };
+  }
+
+  function toLogical(e){
+    var r = cv.getBoundingClientRect();
+    return { x:((e.clientX-r.left)-view.ox)/view.s, y:((e.clientY-r.top)-view.oy)/view.s };
+  }
+
+  cv.addEventListener('pointerdown', function(e){
+    audio();
+    if (assistT > 0) return;
+    if (!resting()){
+      if (maxSpeed() < HURRY_SPEED) hurry = true;   // écourter la fin de coup
+      return;
+    }
+    if (!balls[0].alive) return;
+    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+    aim = toLogical(e);
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', function(e){ if (aim) aim = toLogical(e); });
+  cv.addEventListener('pointerup', function(e){
+    if (!aim) return;
+    var c = balls[0];
+    var dx = c.x-aim.x, dy = c.y-aim.y, d = Math.hypot(dx,dy), pull, sp;
+    aim = null;
+    if (d < c.r*0.6) return;
+    pull = Math.min(Math.max(d - c.r, 0), MAX_PULL);
+    sp = (pull/MAX_PULL)*MAX_SPEED;
+    if (sp < 60) return;
+    c.vx = (dx/d)*sp; c.vy = (dy/d)*sp;
+    shots++; shotT = 0; hurry = false; hud();
+  });
+  cv.addEventListener('pointercancel', function(){ aim = null; });
+
+  /* ================= Commandes ================= */
+  var mutBox = document.getElementById('mutations');
+  MUTATIONS.forEach(function(m){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = m.name;
+    b.id = 'mut-' + m.id; b.title = m.tip;
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', function(){
+      on[m.id] = !on[m.id];
+      b.setAttribute('aria-pressed', on[m.id] ? 'true' : 'false');
+      if (!on.gonfle){ balls.forEach(function(x){ x.r = R; }); }
+      assignRoles();
+      audio();
+    });
+    mutBox.appendChild(b);
+  });
+
+  var btnTriche = document.getElementById('triche');
+  var trichOn = false;
+  btnTriche.addEventListener('click', function(){
+    trichOn = !trichOn;
+    btnTriche.setAttribute('aria-pressed', trichOn ? 'true' : 'false');
+  });
+
+  document.getElementById('assist').addEventListener('click', function(){
+    audio(); aim = null; hurry = false; assistT = ASSIST_TIME;
+    balls.forEach(function(b){ b.r = R; b.portalT = 0; });   // la farce s'arrête, tout rentre
+  });
+  var btnSound = document.getElementById('sound');
+  btnSound.addEventListener('click', function(){
+    soundOn = !soundOn;
+    btnSound.textContent = soundOn ? 'Son : activé' : 'Son : coupé';
+    if (soundOn) audio();
+  });
+  document.getElementById('reset').addEventListener('click', function(){
+    shots = 0; potted = 0; fouls = 0;
+    assistT = 0; aim = null; shotT = 0; rerackT = 0; cueOut = false; hurry = false;
+    rack(); hud();
+  });
+
+  /* ================= Rendu ================= */
+  function roundRectPath(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y);   ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);   ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);     ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  function drawBall(b){
+    if (b.sun && on.soleil){
+      var g = ctx.createRadialGradient(b.x,b.y,b.r*0.8, b.x,b.y,b.r*6);
+      g.addColorStop(0,'rgba(255,220,150,0.22)');
+      g.addColorStop(1,'rgba(255,220,150,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r*6,0,Math.PI*2); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.fillStyle = b.color; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,0.30)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(b.x-b.r*0.32, b.y-b.r*0.34, b.r*0.30, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.34)'; ctx.fill();
+    if (isFixed(b)){
+      ctx.save(); ctx.setLineDash([4,5]); ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r+6,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  function draw(){
+    var i, c, dx, dy, d, pull, t, hx, hy, p1, p2, T, sp;
+
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#0A0D0C';
+    ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.setTransform(view.s*view.dpr,0,0,view.s*view.dpr, view.ox*view.dpr, view.oy*view.dpr);
+
+    // cadre bois
+    T = CUSHION + WOOD;
+    roundRectPath(PLAY.x-T, PLAY.y-T, PLAY.w+2*T, PLAY.h+2*T, 14);
+    ctx.fillStyle = '#6A4526'; ctx.fill();
+    roundRectPath(PLAY.x-T+3, PLAY.y-T+3, PLAY.w+2*T-6, PLAY.h+2*T-6, 12);
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(214,172,120,0.30)'; ctx.stroke();
+
+    // bandes feutrées
+    roundRectPath(PLAY.x-CUSHION, PLAY.y-CUSHION, PLAY.w+2*CUSHION, PLAY.h+2*CUSHION, 8);
+    ctx.fillStyle = '#0C241B'; ctx.fill();
+
+    // tapis
+    ctx.fillStyle = '#143D2E';
+    ctx.fillRect(PLAY.x, PLAY.y, PLAY.w, PLAY.h);
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.38)';
+    ctx.strokeRect(PLAY.x, PLAY.y, PLAY.w, PLAY.h);
+
+    // ligne de tête
+    p1 = pt(0.22,0); p2 = pt(0.22,1);
+    ctx.save(); ctx.setLineDash([7,11]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(232,239,234,0.12)';
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); ctx.restore();
+
+    // poches
+    for (i = 0; i < POCKETS.length; i++){
+      ctx.beginPath(); ctx.arc(POCKETS[i].x, POCKETS[i].y, POCKET_DRAW, 0, Math.PI*2);
+      ctx.fillStyle = '#040907'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();
+    }
+
+    // visée
+    if (aim && resting() && balls[0].alive && assistT <= 0){
+      c = balls[0];
+      dx = c.x-aim.x; dy = c.y-aim.y; d = Math.hypot(dx,dy);
+      if (d > 1){
+        dx /= d; dy /= d;
+        pull = Math.min(Math.max(d - c.r, 0), MAX_PULL);
+        sp = (pull/MAX_PULL)*MAX_SPEED;
+        t = rayLen(c, dx, dy);
+        hx = c.x + dx*t; hy = c.y + dy*t;
+
+        if (trichOn){
+          // Triche : la trajectoire réellement simulée, bandes et mutations comprises
+          var sim = simulateCuePath(c, dx, dy, Math.max(sp, 1));
+          ctx.save();
+          ctx.setLineDash([5,7]); ctx.lineWidth = 2.5;
+          ctx.strokeStyle = 'rgba(226,160,63,0.9)';
+          ctx.beginPath();
+          ctx.moveTo(sim.pts[0].x, sim.pts[0].y);
+          for (var spI = 1; spI < sim.pts.length; spI++) ctx.lineTo(sim.pts[spI].x, sim.pts[spI].y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          var lastPt = sim.pts[sim.pts.length-1];
+          if (sim.hitType === 'ball'){
+            ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(226,160,63,0.95)';
+            ctx.beginPath(); ctx.arc(lastPt.x, lastPt.y, c.r, 0, Math.PI*2); ctx.stroke();
+          } else if (sim.hitType === 'pocket'){
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(226,160,63,0.95)';
+            ctx.beginPath(); ctx.arc(lastPt.x, lastPt.y, POCKET_DRAW+4, 0, Math.PI*2); ctx.stroke();
+          }
+          ctx.restore();
+        } else if (on.mensonge){
+          // Ligne menteuse : le pointillé dévie progressivement de la vraie direction
+          ctx.save();
+          ctx.setLineDash([12,14]); ctx.lineWidth = 2.5;
+          ctx.strokeStyle = 'rgba(232,239,234,0.45)';
+          var segs = 16, stepLen = t/segs;
+          var lx = c.x+dx*c.r, ly = c.y+dy*c.r, ldx = dx, ldy = dy;
+          ctx.beginPath(); ctx.moveTo(lx, ly);
+          for (var sgI = 1; sgI <= segs; sgI++){
+            var frac = sgI/segs;
+            var bendDeg = frac*frac*3.2;
+            var bv2 = bendVec(ldx, ldy, bendDeg);
+            ldx = bv2.x; ldy = bv2.y;
+            lx += ldx*stepLen; ly += ldy*stepLen;
+            ctx.lineTo(lx, ly);
+          }
+          ctx.stroke(); ctx.setLineDash([]);
+          ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(127,212,168,0.5)';
+          ctx.beginPath(); ctx.arc(lx, ly, c.r, 0, Math.PI*2); ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.setLineDash([12, 14]);
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = 'rgba(232,239,234,0.45)';
+          ctx.beginPath();
+          ctx.moveTo(c.x + dx*c.r, c.y + dy*c.r);
+          ctx.lineTo(hx, hy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(127,212,168,0.5)';
+          ctx.beginPath(); ctx.arc(hx, hy, c.r, 0, Math.PI*2); ctx.stroke();
+          ctx.restore();
+        }
+
+        // queue
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#B98B4E'; ctx.lineWidth = 9;
+        ctx.beginPath();
+        ctx.moveTo(c.x-dx*(c.r+12+pull),     c.y-dy*(c.r+12+pull));
+        ctx.lineTo(c.x-dx*(c.r+12+pull+440), c.y-dy*(c.r+12+pull+440));
+        ctx.stroke();
+        ctx.strokeStyle = '#F0E6D2'; ctx.lineWidth = 9;
+        ctx.beginPath();
+        ctx.moveTo(c.x-dx*(c.r+12+pull),    c.y-dy*(c.r+12+pull));
+        ctx.lineTo(c.x-dx*(c.r+12+pull+30), c.y-dy*(c.r+12+pull+30));
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save(); ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.strokeStyle = '#7FD4A8';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r+11, -Math.PI/2, -Math.PI/2 + Math.PI*2*(pull/MAX_PULL));
+        ctx.stroke(); ctx.restore();
+      }
+    }
+
+    for (i = 0; i < balls.length; i++){ if (balls[i].alive) drawBall(balls[i]); }
+  }
+
+  /* ================= Boucle ================= */
+  function frame(now){
+    var dt = Math.min((now-last)/1000, 1/30), moving, i, left;
+    last = now;
+    clockNow += dt;
+    clicksThisFrame = 0;
+    if (assistT > 0) assistT = Math.max(0, assistT - dt);
+    moving = !resting();
+
+    if (assistT > 0 || moving){
+      shotT += dt;
+      if (shotT > SHOT_TIMEOUT && assistT <= 0){
+        for (i = 0; i < balls.length; i++){ balls[i].vx *= 0.9; balls[i].vy *= 0.9; }
+      }
+      step(dt);
+    } else {
+      shotT = 0; hurry = false;
+      if (cueOut){ cueOut = false; placeCue(); }
+      left = 0;
+      for (i = 1; i < balls.length; i++){ if (balls[i].alive) left++; }
+      if (left === 0){
+        rerackT += dt;
+        if (rerackT > 1.0){ rerackT = 0; rack(true); }
+      } else { rerackT = 0; }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function start(saved){
+    if (saved && typeof saved.shots === 'number'){
+      shots = saved.shots; potted = saved.potted || 0; fouls = saved.fouls || 0;
+    }
+    geom(window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait');
+    rack(); hud();
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(cv.parentElement);
+    window.addEventListener('resize', resize);
+    resize();
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+
+  try {
+    if (window.claude && window.claude.hot && window.claude.hot.snapshot){
+      window.claude.hot.snapshot(function(){ return { shots:shots, potted:potted, fouls:fouls }; });
+    }
+  } catch(e){}
+  try {
+    if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start);
+    else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+  } catch(e){ start({}); }
+})();
+</script>
+
+</body></html>
