@@ -2,7 +2,7 @@
 
 A perfectly normal game of pool. Well… almost.
 
-**Play it: https://quick-eyed-sky.github.io/Billiard/** (once GitHub Pages is switched on, see below)
+**Play it: https://quick-eyed-sky.github.io/prankster-pool/**
 
 ![A pool table seen from above. The pockets have eyes.](preview.png)
 
@@ -55,7 +55,7 @@ The game is a single web page, so GitHub can host it for free:
 
 1. In this repository, open **Settings → Pages**.
 2. Under **Build and deployment**, set **Source** to *Deploy from a branch*, pick **main** and **/ (root)**, then **Save**.
-3. A minute later the game is live at https://quick-eyed-sky.github.io/Billiard/.
+3. A minute later the game is live at https://quick-eyed-sky.github.io/prankster-pool/.
 
 The links the game builds, and the preview card that messaging apps show (`preview.png`), point to that address.
 
