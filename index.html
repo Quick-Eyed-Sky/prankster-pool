@@ -513,7 +513,7 @@
   // Never change a mutation's bit: shared links are built from them.
   var MUTATIONS = [
     { id:'yoyo', bit:0, name:"Yo-yo", friction:'low',
-      tip:"Every 0.85 s the ball turns back the way it came.",
+      tip:"Every 0.85 seconds, rolling balls do a U-turn.",
       force: function(W, b, h){
         b.yoyoT += h;
         if (b.yoyoT > 0.85){ b.yoyoT = 0; if (speed(b) > 40){ b.vx = -b.vx; b.vy = -b.vy; } }
@@ -524,11 +524,11 @@
       roles: function(W, col){ col[Math.floor(rnd(W)*col.length)].fixed = true; } },
 
     { id:'inflation', bit:2, name:"Inflation",
-      tip:"Every collision makes both balls bigger, until they no longer fit in the pockets.",
+      tip:"Every collision pumps the balls up, until they're too fat for the pockets.",
       hit: function(W, a, b){ a.r = Math.min(R_MAX, a.r*1.13); b.r = Math.min(R_MAX, b.r*1.13); } },
 
     { id:'wrap', bit:3, name:"Wraparound",
-      tip:"No more bouncing: the ball goes through the cushion and comes back in on the other side.",
+      tip:"No cushions; a ball that leaves one side comes back in on the other.",
       wall: function(W, b){
         var jump = false;
         if (b.x < PLAY.x - b.r)               { b.x = PLAY.x + PLAY.w + b.r; jump = true; }
@@ -540,7 +540,7 @@
       } },
 
     { id:'sun', bit:4, name:"Solar System", friction:'low',
-      tip:"One ball becomes a star and pulls all the others in.",
+      tip:"One ball becomes a sun and the others fall into orbit.",
       roles: function(W, col){
         for (var k = 0; k < col.length; k++){ if (!col[k].fixed){ col[k].sun = true; return; } }
         col[0].sun = true;
@@ -560,7 +560,7 @@
       rest: function(W, a, b){ return (a.sun || b.sun) ? SUN_BOUNCE : undefined; } },
 
     { id:'zigzag', bit:5, name:"Zigzag", friction:'low',
-      tip:"The ball swerves in rhythm: right, then left.",
+      tip:"Balls swerve right, then left, then right, like clockwork.",
       force: function(W, b, h){
         var sp, px, py;
         b.zigT += h;
@@ -570,14 +570,14 @@
       } },
 
     { id:'crooked', bit:6, name:"Crooked Cushions",
-      tip:"Every bounce off a cushion comes out a few degrees wrong.",
+      tip:"Every bounce comes off a few degrees wrong, just enough to doubt yourself.",
       bounce: function(W, b){
         var dev = (rnd(W)*5 + 3) * (rnd(W) < 0.5 ? -1 : 1);
         rotateV(b, dev*Math.PI/180);
       } },
 
     { id:'mitosis', bit:7, name:"Mitosis",
-      tip:"Any collision can split a ball in two, up to 16 on the table.",
+      tip:"Collisions can split a ball in two, up to 16 on the table.",
       hit: function(W, a, b){
         var src, ang, off, clone, sp, a2;
         if (rnd(W) >= MITOSIS_CHANCE || aliveCount(W) + W.pending.length >= MITOSIS_CAP) return;
@@ -592,13 +592,13 @@
       } },
 
     { id:'ice', bit:8, name:"Ice Rink", friction:'ice',
-      tip:"The cloth hardly slows the balls down at all." },
+      tip:"The cloth barely slows anything down; balls glide for ages." },
 
     { id:'liar', bit:9, name:"Lying Line",
-      tip:"The aiming line promises a path… that the ball does not follow." },
+      tip:"The aiming line bends away from where the ball will really go." },
 
     { id:'shy', bit:10, name:"Shy Pockets",
-      tip:"When a ball comes close, the pocket slides away along the rail. It comes back when nobody is looking.",
+      tip:"The pockets have eyes, and slide out of the way when a ball comes near.",
       pre: function(W){
         var i, j, k, b, P, q, d2, best, bd, cands, c, px, py, far, e, tgt, st;
         for (i = 0; i < 6; i++){
@@ -626,7 +626,7 @@
       } },
 
     { id:'indigestion', bit:11, name:"Indigestion",
-      tip:"Each pocket spits out the first ball it swallows, then every other one. Ew.",
+      tip:"Pockets spit back every other ball, starting with the first. Ew.",
       pocket: function(W, b, i){
         var P, dx, dy, d, sp;
         W.eat[i]++;
@@ -644,7 +644,7 @@
       } },
 
     { id:'wormhole', bit:12, name:"Wormhole",
-      tip:"Two swirls in the cloth: in through the blue one, out through the orange one, and back.",
+      tip:"Roll into the blue swirl, pop out of the orange one (and back).",
       force: function(W, b, h){
         var i, o, sp, dx, dy;
         if (b.wormT > 0){ b.wormT = Math.max(0, b.wormT - h); return; }
@@ -679,12 +679,12 @@
       } },
 
     { id:'seasick', bit:13, name:"Seasick", friction:'low',
-      tip:"The table is on a boat: after each shot everything slides from side to side, then the swell dies down.",
+      tip:"After each shot the table rocks like a boat deck and everything slides.",
       pre: function(W){ W._g = swell(W)*900; },
       force: function(W, b, h){ b.vx += W._g*h; } },
 
     { id:'scaredy', bit:14, name:"Scaredy Balls",
-      tip:"The balls are afraid of the white one: they tremble when it comes near, and back away.",
+      tip:"Balls tremble when the white one comes close, then back away.",
       force: function(W, b, h){
         var c = W.balls[0], dx, dy, d, k;
         if (b.cue || !c.alive) return;
@@ -697,11 +697,11 @@
       } },
 
     { id:'tipsy', bit:15, name:"Tipsy Cue",
-      tip:"The cue sways while you aim. The shot goes wherever it points when you let go.",
+      tip:"The cue sways while you aim; the shot goes where it points when you let go.",
       aim: function(a, now){ return a + 0.16*Math.sin(now*2.1) + 0.07*Math.sin(now*5.3 + 1); } },
 
     { id:'pinball', bit:16, name:"Pinball",
-      tip:"Three pinball bumpers on the cloth. Ding, +100, and it counts for nothing.",
+      tip:"Three bumpers on the cloth. Ding! +100. The points count for nothing.",
       post: function(W){
         var i, j, b, o, dx, dy, d, nx, ny, vn, sp, k;
         for (i = 0; i < W.balls.length; i++){
@@ -736,7 +736,7 @@
       } },
 
     { id:'firecrackers', bit:17, name:"Firecrackers",
-      tip:"A hard hit makes the balls around it blow apart. Boom.",
+      tip:"Hit hard, and everything around the impact blows apart.",
       hit: function(W, a, b, vn){
         var cx, cy, i, o, dx, dy, d, k;
         if (-vn < 650 || W.t < W.boomT) return;
@@ -755,14 +755,14 @@
       } },
 
     { id:'referee', bit:18, name:"Shady Referee",
-      tip:"A referee comments on every shot. Always wrong, always sure of it.",
+      tip:"A referee comments on every shot, always wrong, never in doubt.",
       end: function(W, s, rewound){ say(verdict(s, rewound)); } },
 
     { id:'vcr', bit:19, name:"VCR",
-      tip:"Every other shot rewinds itself once the balls stop. Nothing happened." },
+      tip:"Every other shot rewinds itself when the balls stop. Nothing happened." },
 
     { id:'telekinesis', bit:20, name:"Telekinesis",
-      tip:"While the balls roll, hold your finger (or the mouse button) on the cloth: they come to you.",
+      tip:"Hold your finger on the cloth while balls roll, and they come to you.",
       force: function(W, b, h){
         var f = W.finger, dx, dy, d;
         if (!f) return;
@@ -773,7 +773,7 @@
       } },
 
     { id:'ghost', bit:21, name:"Ghost Ball",
-      tip:"One ball turns into a ghost: while it moves fast, it passes straight through the others.",
+      tip:"One ball goes see-through at speed and passes straight through the others.",
       roles: function(W, col){
         var free = col.filter(function(b){ return !b.fixed && !b.sun; }), from = free.length ? free : col;
         from[Math.floor(rnd(W)*from.length)].spook = true;
