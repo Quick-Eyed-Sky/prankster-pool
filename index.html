@@ -134,6 +134,13 @@
   button:disabled{opacity:.4;cursor:default;filter:none}
   button.ghost:disabled:hover{color:var(--ink-dim);border-color:var(--line)}
   .tools button{padding:6px 10px}
+  .tools a{
+    display:inline-block;padding:6px 10px;
+    font-size:11.5px;letter-spacing:.04em;text-decoration:none;
+    color:var(--ink-dim);border:1px solid var(--line);border-radius:3px;
+  }
+  .tools a:hover{color:var(--hot);border-color:var(--hot)}
+  a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   .ico{font-family:"Helvetica Neue",Arial,sans-serif}
   #sound[aria-pressed]{color:var(--ink-dim);background:transparent;border-color:var(--line)}
   #sound[aria-pressed]:hover{color:var(--ink);border-color:var(--ink-dim)}
@@ -190,6 +197,9 @@
     font-size:34px;letter-spacing:.12em;text-transform:uppercase;color:var(--hot);
   }
   .card .actions{justify-content:center;margin-top:6px}
+  .card .credit{margin-top:4px;font-size:11px;color:var(--ink-dim)}
+  .card .credit a{color:var(--ink-dim)}
+  .card .credit a:hover{color:var(--hot)}
   .dim{color:var(--ink-dim)}
 
   /* prank-a-friend dialog */
@@ -244,6 +254,7 @@
       <div><dt>Fouls</dt><dd id="fouls">0</dd></div>
     </dl>
     <div class="tools">
+      <a id="coffee" href="https://buymeacoffee.com/oFJ5CiY7n" target="_blank" rel="noopener" data-farce aria-label="Buy me a coffee"><span class="ico" aria-hidden="true">☕</span><span class="long"> Buy me a coffee</span></a>
       <button id="sound" type="button" class="ghost" aria-pressed="true" aria-label="Sound"><span class="ico" aria-hidden="true">♪</span><span class="long"> Sound: on</span></button>
       <button id="reset" type="button" class="ghost" aria-label="New game"><span class="ico" aria-hidden="true">↺</span><span class="long"> New game</span></button>
     </div>
@@ -264,6 +275,7 @@
         <button id="revealTrap" type="button" class="hot">Prank someone back</button>
         <button id="revealPlay" type="button" class="ghost">Play with every prank</button>
       </div>
+      <p class="credit">Made by <a href="https://www.youtube.com/@QuickEyedSky" target="_blank" rel="noopener">Quick-Eyed Sky</a> · <a href="https://buymeacoffee.com/oFJ5CiY7n" target="_blank" rel="noopener">Buy me a coffee</a></p>
     </div>
   </div>
 </main>

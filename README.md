@@ -84,3 +84,17 @@ Adding one looks like this:
 ### For the curious
 
 The game can be driven from the browser console through `window.prankster`, for example `prankster.toggle('yoyo', true)`, `prankster.shoot(1800, 0)` or `prankster.future(1800, 0)`.
+
+---
+
+## 👋 Who made this
+
+Jean-Pascal — **[Quick-Eyed Sky](https://www.youtube.com/@QuickEyedSky)** on YouTube. Not a programmer: this exists because of a pool game on an Apple II in 1987, and the fun of finding out how far its authors had gone.
+
+If it made you laugh, you can [buy me a coffee](https://buymeacoffee.com/oFJ5CiY7n). Entirely optional, and the game stays exactly as free either way.
+
+<a href="https://buymeacoffee.com/oFJ5CiY7n"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="28"></a>
+
+## 📜 License
+
+MIT — see [LICENSE](LICENSE). Do what you like with it.
