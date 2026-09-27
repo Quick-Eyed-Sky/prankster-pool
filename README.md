@@ -26,28 +26,28 @@ It works with a mouse or a finger. On a phone held upright, the table turns upri
 
 | Mutation | What it does |
 | --- | --- |
-| Yo-yo | Every 0.85 s the ball turns back the way it came. |
+| Yo-yo | Every 0.85 seconds, rolling balls do a U-turn. |
 | Stubborn Ball | One ball flatly refuses to move. |
-| Inflation | Every collision makes both balls bigger, until they no longer fit in the pockets. |
-| Wraparound | No more bouncing: the ball goes through the cushion and comes back in on the other side. |
-| Solar System | One ball becomes a star and pulls all the others in. |
-| Zigzag | The ball swerves in rhythm: right, then left. |
-| Crooked Cushions | Every bounce off a cushion comes out a few degrees wrong. |
-| Mitosis | Any collision can split a ball in two, up to 16 on the table. |
-| Ice Rink | The cloth hardly slows the balls down at all. |
-| Lying Line | The aiming line promises a path that the ball does not follow. |
-| Shy Pockets | When a ball comes close, the pocket slides away along the rail, and keeps an eye on it. |
-| Indigestion | Each pocket spits out the first ball it swallows, then every other one. |
-| Wormhole | Two swirls in the cloth: in through the blue one, out through the orange one, and back. |
-| Seasick | The table is on a boat: after each shot everything slides from side to side, then the swell dies down. |
-| Scaredy Balls | The balls are afraid of the white one: they tremble when it comes near, and back away. |
-| Tipsy Cue | The cue sways while you aim; the shot goes wherever it points when you let go. |
-| Pinball | Three bumpers on the cloth. Ding, +100, and it counts for nothing. |
-| Firecrackers | A hard hit makes the balls around it blow apart. |
-| Shady Referee | A referee comments on every shot. Always wrong, always sure of it. |
-| VCR | Every other shot rewinds itself once the balls stop. Nothing happened. |
-| Telekinesis | While the balls roll, hold your finger (or the mouse button) on the cloth: they come to you. |
-| Ghost Ball | One ball turns into a ghost: while it moves fast, it passes straight through the others. |
+| Inflation | Every collision pumps the balls up, until they're too fat for the pockets. |
+| Wraparound | No cushions; a ball that leaves one side comes back in on the other. |
+| Solar System | One ball becomes a sun and the others fall into orbit. |
+| Zigzag | Balls swerve right, then left, then right, like clockwork. |
+| Crooked Cushions | Every bounce comes off a few degrees wrong, just enough to doubt yourself. |
+| Mitosis | Collisions can split a ball in two, up to 16 on the table. |
+| Ice Rink | The cloth barely slows anything down; balls glide for ages. |
+| Lying Line | The aiming line bends away from where the ball will really go. |
+| Shy Pockets | The pockets have eyes, and slide out of the way when a ball comes near. |
+| Indigestion | Pockets spit back every other ball, starting with the first. Ew. |
+| Wormhole | Roll into the blue swirl, pop out of the orange one (and back). |
+| Seasick | After each shot the table rocks like a boat deck and everything slides. |
+| Scaredy Balls | Balls tremble when the white one comes close, then back away. |
+| Tipsy Cue | The cue sways while you aim; the shot goes where it points when you let go. |
+| Pinball | Three bumpers on the cloth. Ding! +100. The points count for nothing. |
+| Firecrackers | Hit hard, and everything around the impact blows apart. |
+| Shady Referee | A referee comments on every shot, always wrong, never in doubt. |
+| VCR | Every other shot rewinds itself when the balls stop. Nothing happened. |
+| Telekinesis | Hold your finger on the cloth while balls roll, and they come to you. |
+| Ghost Ball | One ball goes see-through at speed and passes straight through the others. |
 
 ## Putting it online
 
