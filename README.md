@@ -2,7 +2,7 @@
 
 A perfectly normal game of pool. Well… almost.
 
-**Play it: https://quick-eyed-sky.github.io/prankster-pool/**
+**Play it: https://quick-eyed-sky.github.io/prankster-pool/** · also on [itch.io](https://quick-eyed-sky.itch.io/prankster-pool)
 
 ![A pool table seen from above. The pockets have eyes.](preview.png)
 
